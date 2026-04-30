@@ -42,6 +42,14 @@ class SlitherlinkState:
 class Board:
     """Representação interna de um tabuleiro de Slitherlink."""
 
+    def __init__(self, board_data: list):
+        """Inicializa o tabuleiro com a grelha fornecida."""
+        self.board = board_data
+        
+        # Guarda também as dimensões do tabuleiro para facilitar o acesso depois
+        self.rows = len(board_data)
+        self.cols = len(board_data[0]) if self.rows > 0 else 0
+
     def adjacent_cell(self, cell:tuple) -> list:
         """Devolve uma lista das células que fazem
         fronteira com a célula enviada no argumento"""
@@ -50,8 +58,7 @@ class Board:
 
     def get_cell_edges(self, row:int, column:int) -> list:
         """Devolve os arestas da célula enviada no argumento"""
-        #TODO
-        pass
+        return [('h', row, column), ('h', row + 1, column), ('v', row, column), ('v', row, column + 1)]
 
     def get_active_edges(self, row:int, column:int) -> list:
         """Devolve o número de arestas ativas"""
@@ -70,16 +77,19 @@ class Board:
             > from sys import stdin
             > line = stdin.readline().split()
         """
-        # line = stdin.readline().split()
-        # rows = int(line[0])
-        # cols = int(line[1])
-        # board = [[0 for _ in range(cols)] for _ in range(rows)]
-        # for i in range(rows):
-        #     line = stdin.readline().split()
-        #     for j in range(cols):
-        #         board[i][j] = int(line[j])
-        # return Board(board)
-        pass
+        board_data = []
+        
+        # Read all lines from standard input
+        for line in stdin:
+            row = line.split()
+            if not row:
+                continue # Skip empty lines
+            
+            # Convert numbers to int, and '.' to -1
+            parsed_row = [int(c) if c.isdigit() else -1 for c in row]
+            board_data.append(parsed_row)
+            
+        return Board(board_data)
         
 
     # TODO: outros metodos da classe
@@ -127,7 +137,10 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
-    pass
+
+    board = Board.parse_instance()
+
+    print(board.get_cell_edges(3,1))
 
 
 
