@@ -42,13 +42,21 @@ class SlitherlinkState:
 class Board:
     """Representação interna de um tabuleiro de Slitherlink."""
 
-    def __init__(self, board_data: list):
+    def __init__(self, board_data: list, active_edges=None):
         """Inicializa o tabuleiro com a grelha fornecida."""
         self.board = board_data
         
-        # Guarda também as dimensões do tabuleiro para facilitar o acesso depois
         self.rows = len(board_data)
-        self.cols = len(board_data[0]) if self.rows > 0 else 0
+        
+        if self.rows > 0:
+            self.cols = len(board_data[0])
+        else:
+            self.cols = 0
+            
+        if active_edges is not None:
+            self.active_edges = active_edges
+        else:
+            self.active_edges = set()
 
     def adjacent_cell(self, cell:tuple) -> list:
         """Devolve uma lista das células que fazem
@@ -59,10 +67,18 @@ class Board:
         """Devolve os arestas da célula enviada no argumento"""
         return [('h', row, column), ('h', row + 1, column), ('v', row, column), ('v', row, column + 1)]
 
-    def get_active_edges(self, row:int, column:int) -> list:
-        """Devolve o número de arestas ativas"""
-        #TODO
-        pass
+    def get_active_edges(self, row: int, column: int) -> list:
+        """Devolve a lista das arestas ativas da célula enviada no argumento"""
+        
+        todas_arestas = self.get_cell_edges(row, column)
+        
+        arestas_ativas = []
+        
+        for aresta in todas_arestas:
+            if aresta in self.active_edges:
+                arestas_ativas.append(aresta)
+            
+        return arestas_ativas
 
     @staticmethod
     def parse_instance():
