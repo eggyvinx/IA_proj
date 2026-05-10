@@ -4,8 +4,8 @@
 # Além das funções e classes sugeridas, podem acrescentar outras que considerem pertinentes.
 
 # Grupo 00:
-# 00000 Nome1
-# 00000 Nome2
+# 114962 Eduardo Rocha
+# 113786 Sofia Rodrigues
 
 import random, copy
 from sys import stdin
@@ -53,8 +53,7 @@ class Board:
     def adjacent_cell(self, cell:tuple) -> list:
         """Devolve uma lista das células que fazem
         fronteira com a célula enviada no argumento"""
-        #TODO
-        pass
+        return [(cell[0]-1,cell[1]), (cell[0],cell[1]+1), (cell[0]+1,cell[1]),  (cell[0],cell[1]-1)]
 
     def get_cell_edges(self, row:int, column:int) -> list:
         """Devolve os arestas da célula enviada no argumento"""
@@ -64,7 +63,6 @@ class Board:
         """Devolve o número de arestas ativas"""
         #TODO
         pass
-
 
     @staticmethod
     def parse_instance():
@@ -82,23 +80,21 @@ class Board:
         # Read all lines from standard input
         for line in stdin:
             row = line.split()
-            if not row:
-                continue # Skip empty lines
-            
-            # Convert numbers to int, and '.' to -1
-            parsed_row = [int(c) if c.isdigit() else -1 for c in row]
-            board_data.append(parsed_row)
+            board_data.append(row)
             
         return Board(board_data)
-        
 
-    # TODO: outros metodos da classe
+    def print_instance(self):
+        """Imprime o tabuleiro no formato indicado no enunciado."""
+        for row in self.board:
+            print(' '.join(str(cell) for cell in row))
+
 
 class Slitherlink(Problem):
     def __init__(self, board: Board, gui=None):
         """O construtor especifica o estado inicial."""
         # TODO
-        pass
+        self.gui = gui
 
 
     def actions(self, state: SlitherlinkState):
@@ -140,7 +136,8 @@ if __name__ == "__main__":
 
     board = Board.parse_instance()
 
-    print(board.get_cell_edges(3,1))
+    print(board.adjacent_cell((1,1)))
+    board.print_instance()
 
 
 
