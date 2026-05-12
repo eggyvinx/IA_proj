@@ -28,7 +28,6 @@ from search import (
 class SlitherlinkState:
     state_id = 0
 
-
     def __init__(self, board):
         self.board = board
         self.id = SlitherlinkState.state_id
@@ -68,7 +67,7 @@ class Board:
         return [('h', row, column), ('h', row + 1, column), ('v', row, column), ('v', row, column + 1)]
 
     def get_active_edges(self, row: int, column: int) -> list:
-        """Devolve a lista das arestas ativas da célula enviada no argumento"""
+        """Devolve o número de arestas ativas da célula enviada no argumento"""
         
         todas_arestas = self.get_cell_edges(row, column)
         
@@ -78,7 +77,20 @@ class Board:
             if aresta in self.active_edges:
                 arestas_ativas.append(aresta)
             
-        return arestas_ativas
+        return len(arestas_ativas)
+    
+    def get_inactive_edges(self, row: int, column: int) -> list:
+        """Devolve o número de arestas inativas da célula enviada no argumento"""
+        
+        todas_arestas = self.get_cell_edges(row, column)
+        
+        arestas_inativas = []
+        
+        for aresta in todas_arestas:
+            if aresta not in self.active_edges:
+                arestas_inativas.append(aresta)
+            
+        return len(arestas_inativas)
 
     @staticmethod
     def parse_instance():
@@ -152,12 +164,6 @@ if __name__ == "__main__":
 
     board = Board.parse_instance()
 
-    print(board.adjacent_cell((1,1)))
+    print(board.get_active_edges(2, 1))
     board.print_instance()
-
-
-
-
-
-
 
