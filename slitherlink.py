@@ -41,26 +41,31 @@ class SlitherlinkState:
 class Board:
     """Representação interna de um tabuleiro de Slitherlink."""
 
-    def __init__(self, board_data: list, active_edges=None):
-        """Inicializa o tabuleiro com a grelha fornecida."""
+    def __init__(self, board_data: dict, rows: int, cols: int):
         self.board = board_data
-        
-        self.rows = len(board_data)
-        
-        if self.rows > 0:
-            self.cols = len(board_data[0])
-        else:
-            self.cols = 0
-            
-        if active_edges is not None:
-            self.active_edges = active_edges
-        else:
-            self.active_edges = set()
+        self.rows = rows
+        self.cols = cols
 
-    def adjacent_cell(self, cell:tuple) -> list:
-        """Devolve uma lista das células que fazem
-        fronteira com a célula enviada no argumento"""
-        return [(cell[0]-1,cell[1]), (cell[0],cell[1]+1), (cell[0]+1,cell[1]),  (cell[0],cell[1]-1)]
+    def adjacent_cell(self, cell: tuple) -> list:
+        """
+        Retorna uma lista de tuplos (coordenadas) das células adjacentes 
+        que existem dentro dos limites do tabuleiro.
+        """
+        row, col = cell
+        adjacents = []
+
+        # Definição dos movimentos: (delta_row, delta_col)
+        # Cima, Baixo, Esquerda, Direita
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        for dr, dc in directions:
+            neighbor = (row + dr, col + dc)
+            
+            # Verifica se o vizinho está dentro dos limites do dicionário
+            if neighbor in self.board:
+                adjacents.append(neighbor)
+        
+        return adjacents
 
     def get_cell_edges(self, row:int, column:int) -> list:
         """Devolve os arestas da célula enviada no argumento"""
@@ -94,28 +99,47 @@ class Board:
 
     @staticmethod
     def parse_instance():
-        """Lê o test do standard input (stdin) que é passado como argumento
-        e retorna uma instância da classe Board.
-
-        Por exemplo:
-            $ python3 pipe.py < test-01.txt
-
-            > from sys import stdin
-            > line = stdin.readline().split()
-        """
-        board_data = []
+        board_data = {}
+        rows = cols = 0
+        top = right = bottom = left = 0
         
-        # Read all lines from standard input
-        for line in stdin:
+        for row_index, line in enumerate(stdin):
             row = line.split()
-            board_data.append(row)
             
-        return Board(board_data)
+            # O número de colunas é o tamanho da linha (assumindo que a grelha é uniforme)
+            cols = len(row) 
+            # Cada vez que lemos uma linha, o total de linhas aumenta
+            rows = row_index + 1 
+            
+            for col_index, value in enumerate(row):
+                board_data[(row_index, col_index)] = [value, top, right, bottom, left]
+                
+        # Passamos o dicionário, o total de linhas e o total de colunas
+        return Board(board_data, rows, cols)
 
     def print_instance(self):
         """Imprime o tabuleiro no formato indicado no enunciado."""
-        for row in self.board:
-            print(' '.join(str(cell) for cell in row))
+        for r in range(self.rows):
+            # 1. ''.join(...) junta os 4 limites da célula (ex: 0000)
+            # 2. ' '.join(...) junta todas as células da linha com um espaço a separá-las
+            print(' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) for c in range(self.cols)))
+
+    def print_dicionario(dicionario: dict):
+        """
+        Imprime todas as chaves e os respetivos valores de um dicionário 
+        linha a linha para facilitar a leitura.
+        """
+        if not dicionario:
+            print("O dicionário está vazio.")
+            return
+
+        print(f"--- Conteúdo do Dicionário ({len(dicionario)} itens) ---")
+        
+        # .items() devolve um tuplo com (chave, valor) para cada elemento
+        for chave, valor in dicionario.items():
+            print(f"Chave: {chave} -> Valor: {valor}")
+            
+        print("-" * 40)
 
 
 class Slitherlink(Problem):
@@ -124,13 +148,11 @@ class Slitherlink(Problem):
         # TODO
         self.gui = gui
 
-
     def actions(self, state: SlitherlinkState):
         """Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento."""
         # TODO
         pass
-
 
     def result(self, state: SlitherlinkState, action):
         """Retorna o estado resultante de executar a 'action' sobre
@@ -164,6 +186,17 @@ if __name__ == "__main__":
 
     board = Board.parse_instance()
 
-    print(board.get_active_edges(2, 1))
+    print(board.adjacent_cell((2, 1)))
     board.print_instance()
+    board.print_dicionario()
+
+
+    """problem = Slitherlink(board)
+
+    s0 = SlitherlinkState(board)
+
+    s1 = problem.result(s0, [('h', 2, 1), ('v', 2, 1), ('v', 2, 2)])
+
+    s1.board.print_instance()"""
+
 
