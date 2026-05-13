@@ -103,15 +103,15 @@ class Board:
         rows = cols = 0
         top = right = bottom = left = 0
         
-        for row_index, line in enumerate(stdin):
+        for row_index, line in enumerate(stdin, start=1):
             row = line.split()
             
             # O número de colunas é o tamanho da linha (assumindo que a grelha é uniforme)
             cols = len(row) 
             # Cada vez que lemos uma linha, o total de linhas aumenta
-            rows = row_index + 1 
+            rows = row_index
             
-            for col_index, value in enumerate(row):
+            for col_index, value in enumerate(row, start=1):
                 board_data[(row_index, col_index)] = [value, top, right, bottom, left]
                 
         # Passamos o dicionário, o total de linhas e o total de colunas
@@ -120,26 +120,23 @@ class Board:
     def print_instance(self):
         """Imprime o tabuleiro no formato indicado no enunciado."""
         for r in range(self.rows):
-            # 1. ''.join(...) junta os 4 limites da célula (ex: 0000)
-            # 2. ' '.join(...) junta todas as células da linha com um espaço a separá-las
-            print(' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) for c in range(self.cols)))
+            for r in range(1, self.rows + 1):
+                print(' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) 
+                           for c in range(1, self.cols + 1)))
 
-    def print_dicionario(dicionario: dict):
+    @staticmethod
+    def print_dicionario(tabuleiro_obj):
         """
-        Imprime todas as chaves e os respetivos valores de um dicionário 
-        linha a linha para facilitar a leitura.
+        Imprime o dicionário interno do objeto Board para fins de debug.
         """
-        if not dicionario:
-            print("O dicionário está vazio.")
-            return
-
-        print(f"--- Conteúdo do Dicionário ({len(dicionario)} itens) ---")
+        # Acedemos ao atributo .board que contém o dicionário real
+        dici = tabuleiro_obj.board
         
-        # .items() devolve um tuplo com (chave, valor) para cada elemento
-        for chave, valor in dicionario.items():
-            print(f"Chave: {chave} -> Valor: {valor}")
-            
-        print("-" * 40)
+        print("\n--- Debug: Conteúdo do Dicionário ---")
+        for key, value in dici.items():
+            # key é (row, col), value é [número, top, right, bottom, left]
+            print(f"Célula {key}: Valor {value[0]} | Lados (T,R,B,L): {value[1:]}")
+        print("------------------------------------\n")  
 
 
 class Slitherlink(Problem):
@@ -188,7 +185,7 @@ if __name__ == "__main__":
 
     print(board.adjacent_cell((2, 1)))
     board.print_instance()
-    board.print_dicionario()
+    board.print_dicionario(board)
 
 
     """problem = Slitherlink(board)
