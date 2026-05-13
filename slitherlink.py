@@ -73,29 +73,23 @@ class Board:
 
     def get_active_edges(self, row: int, column: int) -> list:
         """Devolve o número de arestas ativas da célula enviada no argumento"""
-        
-        todas_arestas = self.get_cell_edges(row, column)
-        
-        arestas_ativas = []
-        
-        for aresta in todas_arestas:
-            if aresta in self.active_edges:
-                arestas_ativas.append(aresta)
+        counter=0
+
+        for i in self.board[(row, column)][1:]:
+            if i==1:
+                counter+=1
             
-        return len(arestas_ativas)
+        return counter
     
     def get_inactive_edges(self, row: int, column: int) -> list:
         """Devolve o número de arestas inativas da célula enviada no argumento"""
-        
-        todas_arestas = self.get_cell_edges(row, column)
-        
-        arestas_inativas = []
-        
-        for aresta in todas_arestas:
-            if aresta not in self.active_edges:
-                arestas_inativas.append(aresta)
+        counter=0
+
+        for i in self.board[(row, column)][1:]:
+            if i != 1:
+                counter+=1
             
-        return len(arestas_inativas)
+        return counter
 
     @staticmethod
     def parse_instance():
@@ -106,37 +100,22 @@ class Board:
         for row_index, line in enumerate(stdin, start=1):
             row = line.split()
             
-            # O número de colunas é o tamanho da linha (assumindo que a grelha é uniforme)
             cols = len(row) 
-            # Cada vez que lemos uma linha, o total de linhas aumenta
             rows = row_index
             
             for col_index, value in enumerate(row, start=1):
                 board_data[(row_index, col_index)] = [value, top, right, bottom, left]
                 
-        # Passamos o dicionário, o total de linhas e o total de colunas
         return Board(board_data, rows, cols)
 
     def print_instance(self):
         """Imprime o tabuleiro no formato indicado no enunciado."""
-        for r in range(self.rows):
-            for r in range(1, self.rows + 1):
-                print(' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) 
-                           for c in range(1, self.cols + 1)))
+        for r in range(1, self.rows + 1):
+            linha = ' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) 
+                            for c in range(1, self.cols + 1))
+            print(linha)
 
-    @staticmethod
-    def print_dicionario(tabuleiro_obj):
-        """
-        Imprime o dicionário interno do objeto Board para fins de debug.
-        """
-        # Acedemos ao atributo .board que contém o dicionário real
-        dici = tabuleiro_obj.board
-        
-        print("\n--- Debug: Conteúdo do Dicionário ---")
-        for key, value in dici.items():
-            # key é (row, col), value é [número, top, right, bottom, left]
-            print(f"Célula {key}: Valor {value[0]} | Lados (T,R,B,L): {value[1:]}")
-        print("------------------------------------\n")  
+
 
 
 class Slitherlink(Problem):
@@ -152,19 +131,118 @@ class Slitherlink(Problem):
         pass
 
     def result(self, state: SlitherlinkState, action):
-        """Retorna o estado resultante de executar a 'action' sobre
-        'state' passado como argumento. A ação a executar deve ser uma
-        das presentes na lista obtida pela execução de
-        self.actions(state)."""
-        # TODO
-        pass
+        # 1. Create a deep copy to ensure the original state remains immutable
+        new_state = copy.deepcopy(state)
+        
+        # Access the actual dictionary inside the Board object for easier use
+        board_dict = new_state.board.board
+
+        for orientation, row, col in action:
+            if orientation == 'h':
+                # Horizontal edge at (row, col) is the TOP of (row, col)
+                if (row, col) in board_dict:
+                    board_dict[(row, col)][1] = 1 # Index 1 = Top
+                
+                # AND the BOTTOM of the cell above (row-1, col)
+                if (row - 1, col) in board_dict:
+                    board_dict[(row - 1, col)][3] = 1 # Index 3 = Bottom
+                    
+            elif orientation == 'v':
+                # Vertical edge at (row, col) is the LEFT of (row, col)
+                if (row, col) in board_dict:
+                    board_dict[(row, col)][4] = 1 # Index 4 = Left
+                    
+                # AND the RIGHT of the cell to the left (row, col-1)
+                if (row, col - 1) in board_dict:
+                    board_dict[(row, col - 1)][2] = 1 # Index 2 = Right
+                    
+        return new_state
+        
 
     def goal_test(self, state: SlitherlinkState):
         """Retorna True se e só se o estado passado como argumento é
         um estado objetivo. Deve verificar se todas as posições do tabuleiro
         estão preenchidas de acordo com as regras do problema."""
-        # TODO
-        pass
+        
+        board = state.board
+        
+        # 1. Verificar se todas as células com números têm a quantidade correta de arestas
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 1):
+                cell_value = board.board[(r, c)][0]
+                
+                # Ignorar células vazias (representadas por '.' ou similar no input)
+                if cell_value.isdigit():
+                    required_edges = int(cell_value)
+                    active_edges = board.get_active_edges(r, c)
+                    
+                    if active_edges != required_edges:
+                        return False
+        return self.is_closed_circuit(state)
+
+def is_closed_circuit(self, state: SlitherlinkState) -> bool:
+    """
+    Verifica se as arestas ativas formam um único circuito fechado.
+    """
+    board = state.board
+    node_degrees = defaultdict(int)
+    active_edges = []
+
+    # Mapear arestas e calcular graus dos vértices
+    for r in range(1, board.rows + 2):
+        for c in range(1, board.cols + 2):
+            # Aresta Horizontal (nó r,c para r,c+1)
+            if c <= board.cols and self._is_edge_active(board, 'h', r, c):
+                node_degrees[(r, c)] += 1
+                node_degrees[(r, c + 1)] += 1
+                active_edges.append(((r, c), (r, c + 1)))
+
+            # Aresta Vertical (nó r,c para r+1,c)
+            if r <= board.rows and self._is_edge_active(board, 'v', r, c):
+                node_degrees[(r, c)] += 1
+                node_degrees[(r + 1, c)] += 1
+                active_edges.append(((r, c), (r + 1, c)))
+
+    if not active_edges:
+        return False
+
+    # Todos os nós no circuito devem ter grau 2
+    for node, degree in node_degrees.items():
+        if degree != 0 and degree != 2:
+            return False
+
+    # Garantir que existe apenas UM ciclo (conectividade via BFS)
+    start_node = active_edges[0][0]
+    visited = {start_node}
+    queue = [start_node]
+    
+    while queue:
+        curr = queue.pop(0)
+        for n1, n2 in active_edges:
+            neighbor = None
+            if n1 == curr: neighbor = n2
+            elif n2 == curr: neighbor = n1
+            
+            if neighbor and neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    # O número de nós visitados deve ser igual ao total de nós ativos
+    active_nodes_count = sum(1 for d in node_degrees.values() if d == 2)
+    return len(visited) == active_nodes_count
+
+def _is_edge_active(self, board, orientation, r, c):
+    """Verifica se uma aresta está ativa consultando o dicionário do tabuleiro."""
+    b = board.board
+    if orientation == 'h':
+        if (r, c) in b and b[(r, c)][1] == 1: return True
+        if (r - 1, c) in b and b[(r - 1, c)][3] == 1: return True
+    else:
+        if (r, c) in b and b[(r, c)][4] == 1: return True
+        if (r, c - 1) in b and b[(r, c - 1)][2] == 1: return True
+    return False 
+
+
 
     def h(self, node: Node):
         """Função heuristica utilizada para a procura A*."""
@@ -183,11 +261,19 @@ if __name__ == "__main__":
 
     board = Board.parse_instance()
 
-    print(board.adjacent_cell((2, 1)))
+    print(board.get_cell_edges(3, 1))
     board.print_instance()
-    board.print_dicionario(board)
+    # Criar uma instância de Slytherlink:
+    problem = Slitherlink(board)
+    # Criar um estado com a configuração inicial:
+    initial_state = SlitherlinkState(board)
 
+    result_state = s1 = problem.result(initial_state,[('h', 3, 1), ('h', 4, 1), ('v', 3, 1), ('v', 3, 2)])
+    print(result_state.board.get_active_edges(2, 1))
+    print(result_state.board.get_inactive_edges(2, 1))
 
+    result_state.board.print_instance()
+    print(problem.goal_test(result_state))
     """problem = Slitherlink(board)
 
     s0 = SlitherlinkState(board)
