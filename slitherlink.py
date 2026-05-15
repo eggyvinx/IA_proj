@@ -109,14 +109,18 @@ class Board:
         return Board(board_data, rows, cols)
 
     def print_instance(self):
-        """Imprime o tabuleiro no formato indicado no enunciado."""
-        for r in range(1, self.rows + 1):
-            linha = ' '.join(''.join(str(edge) for edge in self.board[(r, c)][1:]) 
-                            for c in range(1, self.cols + 1))
-            print(linha)
-
-
-
+       for r in range(1, self.rows + 1):
+            elementos = []
+            for c in range(1, self.cols + 1):
+                # Obtém os 4 últimos itens: [0, 0, 0, 0]
+                sublista = self.board[(r, c)][-4:]
+                # Converte cada número para string e junta todos sem espaço: "0000"
+                bloco = ''.join(map(str, sublista))
+                elementos.append(bloco)
+            
+            # Junta os blocos de cada coluna com um espaço entre eles
+            print(' '.join(elementos))
+    
 
 class Slitherlink(Problem):
     def __init__(self, board: Board, gui=None):
@@ -180,77 +184,76 @@ class Slitherlink(Problem):
                         return False
         return self.is_closed_circuit(state)
 
-def is_closed_circuit(self, state: SlitherlinkState) -> bool:
-    """
-    Verifica se as arestas ativas formam um único circuito fechado.
-    """
-    board = state.board
-    node_degrees = defaultdict(int)
-    active_edges = []
+    def is_closed_circuit(self, state: SlitherlinkState) -> bool:
+        """
+        Verifica se as arestas ativas formam um único circuito fechado.
+        """
+        board = state.board
+        node_degrees = defaultdict(int)
+        active_edges = []
 
-    # Mapear arestas e calcular graus dos vértices
-    for r in range(1, board.rows + 2):
-        for c in range(1, board.cols + 2):
-            # Aresta Horizontal (nó r,c para r,c+1)
-            if c <= board.cols and self._is_edge_active(board, 'h', r, c):
-                node_degrees[(r, c)] += 1
-                node_degrees[(r, c + 1)] += 1
-                active_edges.append(((r, c), (r, c + 1)))
+        # Mapear arestas e calcular graus dos vértices
+        for r in range(1, board.rows + 2):
+            for c in range(1, board.cols + 2):
+                # Aresta Horizontal (nó r,c para r,c+1)
+                if c <= board.cols and self._is_edge_active(board, 'h', r, c):
+                    node_degrees[(r, c)] += 1
+                    node_degrees[(r, c + 1)] += 1
+                    active_edges.append(((r, c), (r, c + 1)))
 
-            # Aresta Vertical (nó r,c para r+1,c)
-            if r <= board.rows and self._is_edge_active(board, 'v', r, c):
-                node_degrees[(r, c)] += 1
-                node_degrees[(r + 1, c)] += 1
-                active_edges.append(((r, c), (r + 1, c)))
+                # Aresta Vertical (nó r,c para r+1,c)
+                if r <= board.rows and self._is_edge_active(board, 'v', r, c):
+                    node_degrees[(r, c)] += 1
+                    node_degrees[(r + 1, c)] += 1
+                    active_edges.append(((r, c), (r + 1, c)))
 
-    if not active_edges:
-        return False
-
-    # Todos os nós no circuito devem ter grau 2
-    for node, degree in node_degrees.items():
-        if degree != 0 and degree != 2:
+        if not active_edges:
             return False
 
-    # Garantir que existe apenas UM ciclo (conectividade via BFS)
-    start_node = active_edges[0][0]
-    visited = {start_node}
-    queue = [start_node]
-    
-    while queue:
-        curr = queue.pop(0)
-        for n1, n2 in active_edges:
-            neighbor = None
-            if n1 == curr: neighbor = n2
-            elif n2 == curr: neighbor = n1
-            
-            if neighbor and neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
+        # Todos os nós no circuito devem ter grau 2
+        for node, degree in node_degrees.items():
+            if degree != 0 and degree != 2:
+                return False
 
-    # O número de nós visitados deve ser igual ao total de nós ativos
-    active_nodes_count = sum(1 for d in node_degrees.values() if d == 2)
-    return len(visited) == active_nodes_count
+        # Garantir que existe apenas UM ciclo (conectividade via BFS)
+        start_node = active_edges[0][0]
+        visited = {start_node}
+        queue = [start_node]
+        
+        while queue:
+            curr = queue.pop(0)
+            for n1, n2 in active_edges:
+                neighbor = None
+                if n1 == curr: neighbor = n2
+                elif n2 == curr: neighbor = n1
+                
+                if neighbor and neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
 
-def _is_edge_active(self, board, orientation, r, c):
-    """Verifica se uma aresta está ativa consultando o dicionário do tabuleiro."""
-    b = board.board
-    if orientation == 'h':
-        if (r, c) in b and b[(r, c)][1] == 1: return True
-        if (r - 1, c) in b and b[(r - 1, c)][3] == 1: return True
-    else:
-        if (r, c) in b and b[(r, c)][4] == 1: return True
-        if (r, c - 1) in b and b[(r, c - 1)][2] == 1: return True
-    return False 
+        # O número de nós visitados deve ser igual ao total de nós ativos
+        active_nodes_count = sum(1 for d in node_degrees.values() if d == 2)
+        return len(visited) == active_nodes_count
+
+    def _is_edge_active(self, board, orientation, r, c):
+        """Verifica se uma aresta está ativa consultando o dicionário do tabuleiro."""
+        b = board.board
+        if orientation == 'h':
+            if (r, c) in b and b[(r, c)][1] == 1: return True
+            if (r - 1, c) in b and b[(r - 1, c)][3] == 1: return True
+        else:
+            if (r, c) in b and b[(r, c)][4] == 1: return True
+            if (r, c - 1) in b and b[(r, c - 1)][2] == 1: return True
+        return False 
 
 
 
     def h(self, node: Node):
-        """Função heuristica utilizada para a procura A*."""
-        # TODO
-        pass
+            """Função heuristica utilizada para a procura A*."""
+            # TODO
+            pass
 
     
-
 
 if __name__ == "__main__":
     # TODO:
@@ -273,7 +276,7 @@ if __name__ == "__main__":
     print(result_state.board.get_inactive_edges(2, 1))
 
     result_state.board.print_instance()
-    print(problem.goal_test(result_state))
+    print(problem.is_closed_circuit(result_state))
     """problem = Slitherlink(board)
 
     s0 = SlitherlinkState(board)
