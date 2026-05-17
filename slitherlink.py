@@ -137,20 +137,64 @@ class Slitherlink(Problem):
                         
         return valid_actions
 
+    def _get_vertex_degree(self, board, vr, vc):
+        """
+        Conta quantas arestas ativas estão conectadas ao vértice (vr, vc).
+        Um vértice pode ter no máximo 4 arestas à sua volta.
+        """
+        degree = 0
+        # 1. Aresta horizontal que começa no vértice
+        if self._is_edge_active(board, 'h', vr, vc): degree += 1
+        # 2. Aresta horizontal que termina no vértice
+        if self._is_edge_active(board, 'h', vr, vc - 1): degree += 1
+        # 3. Aresta vertical que começa no vértice
+        if self._is_edge_active(board, 'v', vr, vc): degree += 1
+        # 4. Aresta vertical que termina no vértice
+        if self._is_edge_active(board, 'v', vr - 1, vc): degree += 1
+        
+        return degree
+
     def _is_action_legal(self, state, orientation, r, c):
         """Verifica se ativar a aresta (r, c) viola restrições locais."""
         board = state.board
-        
-        # Exemplo de verificação de grau do vértice:
-        # Se for horizontal ('h', r, c), liga os pontos (r, c) e (r, c+1)
-        # Deves verificar se esses pontos já têm grau 2.
-        # (Precisas de implementar uma função que conte o grau de um nó r,c)
-        
-        # Exemplo de verificação de número da célula:
-        # Uma aresta horizontal ('h', r, c) afeta as células (r, c) e (r-1, c)
-        # Se o número de arestas ativas nessas células já for o máximo, retorna False.
-        
-        return True # Se passar em todos os testes
+
+        # 1. VALIDAÇÃO DAS CÉLULAS (RESTRIÇÃO NUMÉRICA)
+        # Identifica as duas células que partilham a aresta em análise
+        if orientation == 'h':
+            cells_to_check = [(r, c), (r - 1, c)]
+        else:
+            cells_to_check = [(r, c), (r, c - 1)]
+
+        for cell_row, cell_col in cells_to_check:
+            # Verifica se a célula existe nos limites do tabuleiro
+            if (cell_row, cell_col) in board.board:
+                cell_value = board.board[(cell_row, cell_col)][0]
+                
+                # Se a célula tiver uma pista numérica (0, 1, 2, 3)
+                if cell_value.isdigit():
+                    required_edges = int(cell_value)
+                    active_edges = board.get_active_edges(cell_row, cell_col)
+                    
+                    # Se a célula já atingiu o número máximo de linhas permitidas,
+                    # adicionar mais uma linha nesta aresta é ilegal.
+                    if active_edges >= required_edges:
+                        return False
+
+        # 2. VALIDAÇÃO DOS VÉRTICES (GRAU DO CIRCUITO)
+        # Identifica as coordenadas dos dois vértices (extremidades) da aresta
+        if orientation == 'h':
+            vertices = [(r, c), (r, c + 1)]
+        else:
+            vertices = [(r, c), (r + 1, c)]
+
+        for vr, vc in vertices:
+            # Se um dos vértices já tiver 2 linhas ligadas a ele, colocar uma
+            # terceira linha criaria uma ramificação inválida no circuito.
+            if self._get_vertex_degree(board, vr, vc) >= 2:
+                return False
+
+        # Se não violar nenhuma regra das células nem dos vértices, a ação é legal
+        return True
 
     def result(self, state: SlitherlinkState, action):
         # 1. Create a deep copy to ensure the original state remains immutable
@@ -159,27 +203,32 @@ class Slitherlink(Problem):
         # Access the actual dictionary inside the Board object for easier use
         board_dict = new_state.board.board
 
-        # A ação é apenas um tuplo (orientation, row, col), logo não precisamos de um for loop
-        orientation, row, col = action
+        # Verifica se é uma lista de ações (exemplo 3) ou apenas uma
+       # Utiliza a função do utils.py para garantir que é uma sequência
+        actions_to_apply = sequence(action)
 
-        if orientation == 'h':
-            # Horizontal edge at (row, col) is the TOP of (row, col)
-            if (row, col) in board_dict:
-                board_dict[(row, col)][1] = 1 # Index 1 = Top
-            
-            # AND the BOTTOM of the cell above (row-1, col)
-            if (row - 1, col) in board_dict:
-                board_dict[(row - 1, col)][3] = 1 # Index 3 = Bottom
+        # Aplica cada ação
+        for act in actions_to_apply:
+            orientation, row, col = act
+
+            if orientation == 'h':
+                # Horizontal edge at (row, col) is the TOP of (row, col)
+                if (row, col) in board_dict:
+                    board_dict[(row, col)][1] = 1 # Index 1 = Top
                 
-        elif orientation == 'v':
-            # Vertical edge at (row, col) is the LEFT of (row, col)
-            if (row, col) in board_dict:
-                board_dict[(row, col)][4] = 1 # Index 4 = Left
-                
-            # AND the RIGHT of the cell to the left (row, col-1)
-            if (row, col - 1) in board_dict:
-                board_dict[(row, col - 1)][2] = 1 # Index 2 = Right
-                
+                # AND the BOTTOM of the cell above (row-1, col)
+                if (row - 1, col) in board_dict:
+                    board_dict[(row - 1, col)][3] = 1 # Index 3 = Bottom
+                    
+            elif orientation == 'v':
+                # Vertical edge at (row, col) is the LEFT of (row, col)
+                if (row, col) in board_dict:
+                    board_dict[(row, col)][4] = 1 # Index 4 = Left
+                    
+                # AND the RIGHT of the cell to the left (row, col-1)
+                if (row, col - 1) in board_dict:
+                    board_dict[(row, col - 1)][2] = 1 # Index 2 = Right
+                    
         return new_state
         
 
@@ -282,10 +331,29 @@ if __name__ == "__main__":
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
 
-    board = Board.parse_instance()
+    """board = Board.parse_instance()
     # Criar uma instância de Slytherlink:
     problem = Slitherlink(board)
 
     goal_node = depth_first_tree_search(problem)
-    print("Solution:\n", goal_node.state.board.print_instance(), sep="")
+    print("Solution:\n", goal_node.state.board.print_instance(), sep="")"""
+
+    """"""
+    # Ler grelha da figura 1a:
+    board = Board.parse_instance()
+    # Criar uma instância de Slytherlink:
+    problem = Slitherlink(board)
+    # Criar um estado com a configuração inicial:
+    s0 = SlitherlinkState(board)
+    # Aplicar as ações que resolvem a instância
+    s2 = problem.result(s0, [ ('h', 2, 1), ('h', 2, 2), ('h', 2, 3), ('h', 2, 4), ('h', 2, 5), ('h', 2, 6), ('h', 3, 1), ('h', 3, 2), ('h', 3, 3), ('h', 3, 4), ('h', 3, 5), ('h', 3, 6), ('h', 4, 1), ('h', 4, 3), ('h', 4, 4), ('h', 4, 5), ('h', 4, 6), ('h', 5, 1), ('h', 5, 3), ('h', 5, 4), ('h', 5, 5), ('h', 5, 6), ('h', 6, 1), ('h', 6, 2), ('h', 6, 3), ('h', 6, 4), ('h', 6, 5), ('h', 6, 6), ('h', 7, 1), ('h', 7, 2), ('h', 7, 3), ('h', 7, 4), ('h', 7, 5), ('h', 7, 6), ('v', 1, 1), ('v', 1, 2), ('v', 1, 3), ('v', 1, 4), ('v', 1, 5), ('v', 1, 6), ('v', 1, 7), ('v', 2, 1), ('v', 2, 2), ('v', 2, 3), ('v', 2, 4), ('v', 2, 5), ('v', 2, 6), ('v', 2, 7), ('v', 3, 1), ('v', 3, 2), ('v', 3, 3), ('v', 3, 4), ('v', 3, 5), ('v', 3, 6), ('v', 3, 7), ('v', 4, 1), ('v', 4, 4), ('v', 4, 5), ('v', 4, 6), ('v', 4, 7), ('v', 5, 1), ('v', 5, 2), ('v', 5, 3), ('v', 5, 4), ('v', 5, 5), ('v', 5, 6), ('v', 5, 7), ('v', 6, 1), ('v', 6, 2), ('v', 6, 3), ('v', 6, 4), ('v', 6, 5), ('v', 6, 6), ('v', 6, 7)])
+    print(s2.board.print_instance())
+
+    s4 = problem.actions(s2)
+    print(s4)
+    # Verificar se foi atingida a solução
+    #print(s2.board.print_instance())
+    #print("\n")
+    #print(s3.board.print_instance())
+
 
