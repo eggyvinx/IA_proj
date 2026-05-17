@@ -56,9 +56,7 @@ class Board:
 
         # Definição dos movimentos: (delta_row, delta_col)
         # Cima, Baixo, Esquerda, Direita
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-        for dr, dc in directions:
+        for dr, dc in orientations:
             neighbor = (row + dr, col + dc)
             
             # Verifica se o vizinho está dentro dos limites do dicionário
@@ -73,23 +71,11 @@ class Board:
 
     def get_active_edges(self, row: int, column: int) -> list:
         """Devolve o número de arestas ativas da célula enviada no argumento"""
-        counter=0
-
-        for i in self.board[(row, column)][1:]:
-            if i==1:
-                counter+=1
-            
-        return counter
+        return count(edge == 1 for edge in self.board[(row, column)][1:])
     
     def get_inactive_edges(self, row: int, column: int) -> list:
         """Devolve o número de arestas inativas da célula enviada no argumento"""
-        counter=0
-
-        for i in self.board[(row, column)][1:]:
-            if i != 1:
-                counter+=1
-            
-        return counter
+        return count(edge == 0 for edge in self.board[(row, column)][1:])
 
     @staticmethod
     def parse_instance():
@@ -125,14 +111,46 @@ class Board:
 class Slitherlink(Problem):
     def __init__(self, board: Board, gui=None):
         """O construtor especifica o estado inicial."""
-        # TODO
-        self.gui = gui
+        self.initial_state = SlitherlinkState(board)
+        super().__init__(self.initial_state)
+        #might be needed later
+        self.board = board
 
     def actions(self, state: SlitherlinkState):
-        """Retorna uma lista de ações que podem ser executadas a
-        partir do estado passado como argumento."""
-        # TODO
-        pass
+        """Retorna uma lista de arestas que podem ser ativadas."""
+        valid_actions = []
+        board = state.board
+        
+        # 1. Gerar potenciais arestas horizontais
+        for r in range(1, board.rows + 2):
+            for c in range(1, board.cols + 1):
+                if not self._is_edge_active(board, 'h', r, c):
+                    if self._is_action_legal(state, 'h', r, c):
+                        valid_actions.append(('h', r, c))
+                        
+        # 2. Gerar potenciais arestas verticais
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 2):
+                if not self._is_edge_active(board, 'v', r, c):
+                    if self._is_action_legal(state, 'v', r, c):
+                        valid_actions.append(('v', r, c))
+                        
+        return valid_actions
+
+    def _is_action_legal(self, state, orientation, r, c):
+        """Verifica se ativar a aresta (r, c) viola restrições locais."""
+        board = state.board
+        
+        # Exemplo de verificação de grau do vértice:
+        # Se for horizontal ('h', r, c), liga os pontos (r, c) e (r, c+1)
+        # Deves verificar se esses pontos já têm grau 2.
+        # (Precisas de implementar uma função que conte o grau de um nó r,c)
+        
+        # Exemplo de verificação de número da célula:
+        # Uma aresta horizontal ('h', r, c) afeta as células (r, c) e (r-1, c)
+        # Se o número de arestas ativas nessas células já for o máximo, retorna False.
+        
+        return True # Se passar em todos os testes
 
     def result(self, state: SlitherlinkState, action):
         # 1. Create a deep copy to ensure the original state remains immutable
@@ -141,25 +159,27 @@ class Slitherlink(Problem):
         # Access the actual dictionary inside the Board object for easier use
         board_dict = new_state.board.board
 
-        for orientation, row, col in action:
-            if orientation == 'h':
-                # Horizontal edge at (row, col) is the TOP of (row, col)
-                if (row, col) in board_dict:
-                    board_dict[(row, col)][1] = 1 # Index 1 = Top
+        # A ação é apenas um tuplo (orientation, row, col), logo não precisamos de um for loop
+        orientation, row, col = action
+
+        if orientation == 'h':
+            # Horizontal edge at (row, col) is the TOP of (row, col)
+            if (row, col) in board_dict:
+                board_dict[(row, col)][1] = 1 # Index 1 = Top
+            
+            # AND the BOTTOM of the cell above (row-1, col)
+            if (row - 1, col) in board_dict:
+                board_dict[(row - 1, col)][3] = 1 # Index 3 = Bottom
                 
-                # AND the BOTTOM of the cell above (row-1, col)
-                if (row - 1, col) in board_dict:
-                    board_dict[(row - 1, col)][3] = 1 # Index 3 = Bottom
-                    
-            elif orientation == 'v':
-                # Vertical edge at (row, col) is the LEFT of (row, col)
-                if (row, col) in board_dict:
-                    board_dict[(row, col)][4] = 1 # Index 4 = Left
-                    
-                # AND the RIGHT of the cell to the left (row, col-1)
-                if (row, col - 1) in board_dict:
-                    board_dict[(row, col - 1)][2] = 1 # Index 2 = Right
-                    
+        elif orientation == 'v':
+            # Vertical edge at (row, col) is the LEFT of (row, col)
+            if (row, col) in board_dict:
+                board_dict[(row, col)][4] = 1 # Index 4 = Left
+                
+            # AND the RIGHT of the cell to the left (row, col-1)
+            if (row, col - 1) in board_dict:
+                board_dict[(row, col - 1)][2] = 1 # Index 2 = Right
+                
         return new_state
         
 
@@ -263,26 +283,9 @@ if __name__ == "__main__":
     # Imprimir para o standard output no formato indicado.
 
     board = Board.parse_instance()
-
-    print(board.get_cell_edges(3, 1))
-    board.print_instance()
     # Criar uma instância de Slytherlink:
     problem = Slitherlink(board)
-    # Criar um estado com a configuração inicial:
-    initial_state = SlitherlinkState(board)
 
-    result_state = s1 = problem.result(initial_state,[('h', 3, 1), ('h', 4, 1), ('v', 3, 1), ('v', 3, 2)])
-    print(result_state.board.get_active_edges(2, 1))
-    print(result_state.board.get_inactive_edges(2, 1))
-
-    result_state.board.print_instance()
-    print(problem.is_closed_circuit(result_state))
-    """problem = Slitherlink(board)
-
-    s0 = SlitherlinkState(board)
-
-    s1 = problem.result(s0, [('h', 2, 1), ('v', 2, 1), ('v', 2, 2)])
-
-    s1.board.print_instance()"""
-
+    goal_node = depth_first_tree_search(problem)
+    print("Solution:\n", goal_node.state.board.print_instance(), sep="")
 
