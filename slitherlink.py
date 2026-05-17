@@ -98,8 +98,9 @@ class Board:
        for r in range(1, self.rows + 1):
             elementos = []
             for c in range(1, self.cols + 1):
-                # Obtém os 4 últimos itens: [0, 0, 0, 0]
-                sublista = self.board[(r, c)][-4:]
+                # Obtém os 4 últimos itens e substitui -1 por 0
+                sublista = [0 if x == -1 else x for x in self.board[(r, c)][-4:]]
+                
                 # Converte cada número para string e junta todos sem espaço: "0000"
                 bloco = ''.join(map(str, sublista))
                 elementos.append(bloco)
@@ -116,26 +117,118 @@ class Slitherlink(Problem):
         #might be needed later
         self.board = board
 
+    def _mark_zeros_forbidden(self, state: SlitherlinkState):
+        """
+        Marca as arestas de células com '0' como proibidas (-1) no dicionário.
+        Isto previne que estas arestas sejam retornadas como ações.
+        """
+        board_dict = state.board.board
+        for (r, c), data in board_dict.items():
+            # data[0] é o valor da célula (string)
+            if data[0] == '0':
+                # Atualizar a própria célula (Top: 1, Right: 2, Bottom: 3, Left: 4)
+                data[1] = data[2] = data[3] = data[4] = -1
+                
+                # Sincronizar também o estado com as células adjacentes que partilham a aresta
+                if (r - 1, c) in board_dict: board_dict[(r - 1, c)][3] = -1 # Bottom da célula acima
+                if (r, c + 1) in board_dict: board_dict[(r, c + 1)][4] = -1 # Left da célula à direita
+                if (r + 1, c) in board_dict: board_dict[(r + 1, c)][1] = -1 # Top da célula abaixo
+                if (r, c - 1) in board_dict: board_dict[(r, c - 1)][2] = -1 # Right da célula à esquerda
+
+    def _is_edge_forbidden(self, board_dict: dict, orientation: str, r: int, c: int) -> bool:
+        """
+        Verifica se a aresta foi marcada como proibida (-1) numa iteração anterior.
+        """
+        if orientation == 'h':
+            if (r, c) in board_dict and board_dict[(r, c)][1] == -1: return True
+            if (r - 1, c) in board_dict and board_dict[(r - 1, c)][3] == -1: return True
+        elif orientation == 'v':
+            if (r, c) in board_dict and board_dict[(r, c)][4] == -1: return True
+            if (r, c - 1) in board_dict and board_dict[(r, c - 1)][2] == -1: return True
+        return False
+
     def actions(self, state: SlitherlinkState):
-        """Retorna uma lista de arestas que podem ser ativadas."""
+        """Retorna uma lista de arestas ativáveis seguindo a estratégia informada."""
         valid_actions = []
         board = state.board
         
-        # 1. Gerar potenciais arestas horizontais
+        # 1. Marcar células com 0 como proibidas (-1) permanentemente neste estado
+        self._mark_zeros_forbidden(state)
+        
+        # 2. Procurar vértices de grau 1 e verificar se já há arestas ativadas no tabuleiro
+        degree_1_vertices = []
+        any_edge_active = False
+        
+        # Iterar sobre todos os vértices possíveis
         for r in range(1, board.rows + 2):
-            for c in range(1, board.cols + 1):
-                if not self._is_edge_active(board, 'h', r, c):
-                    if self._is_action_legal(state, 'h', r, c):
-                        valid_actions.append(('h', r, c))
-                        
-        # 2. Gerar potenciais arestas verticais
-        for r in range(1, board.rows + 1):
             for c in range(1, board.cols + 2):
-                if not self._is_edge_active(board, 'v', r, c):
-                    if self._is_action_legal(state, 'v', r, c):
+                deg = self._get_vertex_degree(board, r, c)
+                if deg > 0:
+                    any_edge_active = True
+                if deg == 1:
+                    degree_1_vertices.append((r, c))
+                    
+        # --- ESTRATÉGIA B: Se já existem arestas ativas, continuar a partir de um vértice de grau 1 ---
+        if any_edge_active:
+            if degree_1_vertices:
+                # Escolher o primeiro vértice aberto (grau 1) para explorar e expandir esse caminho
+                vr, vc = degree_1_vertices[0]
+                
+                # Potenciais arestas ligadas a este vértice específico
+                potential_edges = [
+                    ('h', vr, vc),       # Direita
+                    ('h', vr, vc - 1),   # Esquerda
+                    ('v', vr, vc),       # Baixo
+                    ('v', vr - 1, vc)    # Cima
+                ]
+                
+                for orient, er, ec in potential_edges:
+                    # Garantir que a aresta gerada está dentro dos limites do tabuleiro
+                    if orient == 'h' and (er < 1 or er > board.rows + 1 or ec < 1 or ec > board.cols): continue
+                    if orient == 'v' and (er < 1 or er > board.rows or ec < 1 or ec > board.cols + 1): continue
+                    
+                    if not self._is_edge_active(board, orient, er, ec) and not self._is_edge_forbidden(board.board, orient, er, ec):
+                        if self._is_action_legal(state, orient, er, ec):
+                            valid_actions.append((orient, er, ec))
+                
+                return valid_actions
+            else:
+                # O circuito deve estar fechado se existem arestas mas nenhum vértice de grau 1
+                return []
+                
+        # --- ESTRATÉGIA A: Nenhuma aresta ativada. Procurar células com '3' ---
+        else:
+            for r in range(1, board.rows + 1):
+                for c in range(1, board.cols + 1):
+                    if board.board[(r, c)][0] == '3':
+                        # Se encontrou um 3, sugerir as suas 4 arestas (Top, Bottom, Left, Right)
+                        potential_edges = [
+                            ('h', r, c),       # Top
+                            ('h', r + 1, c),   # Bottom
+                            ('v', r, c),       # Left
+                            ('v', r, c + 1)    # Right
+                        ]
+                        
+                        for orient, er, ec in potential_edges:
+                            if not self._is_edge_forbidden(board.board, orient, er, ec):
+                                if self._is_action_legal(state, orient, er, ec):
+                                    valid_actions.append((orient, er, ec))
+                        
+                        # Retornar imediatamente para garantir que focamos na primeira célula '3' que encontrarmos
+                        if valid_actions:
+                            return valid_actions
+                            
+            # Fallback seguro: caso não exista nenhuma célula com '3' no tabuleiro inteiro, usar expansão linear
+            for r in range(1, board.rows + 2):
+                for c in range(1, board.cols + 1):
+                    if not self._is_edge_forbidden(board.board, 'h', r, c) and self._is_action_legal(state, 'h', r, c):
+                        valid_actions.append(('h', r, c))
+            for r in range(1, board.rows + 1):
+                for c in range(1, board.cols + 2):
+                    if not self._is_edge_forbidden(board.board, 'v', r, c) and self._is_action_legal(state, 'v', r, c):
                         valid_actions.append(('v', r, c))
                         
-        return valid_actions
+            return valid_actions
 
     def _get_vertex_degree(self, board, vr, vc):
         """
@@ -204,8 +297,12 @@ class Slitherlink(Problem):
         board_dict = new_state.board.board
 
         # Verifica se é uma lista de ações (exemplo 3) ou apenas uma
-       # Utiliza a função do utils.py para garantir que é uma sequência
-        actions_to_apply = sequence(action)
+        if isinstance(action, tuple) and type(action[0]) is str:
+            # É uma ação única no formato ('h', row, col)
+            actions_to_apply = [action]
+        else:
+            # Já é uma lista de ações
+            actions_to_apply = action
 
         # Aplica cada ação
         for act in actions_to_apply:
@@ -339,7 +436,8 @@ if __name__ == "__main__":
     print("Solution:\n", goal_node.state.board.print_instance(), sep="")"""
 
     """"""
-    # Ler grelha da figura 1a:
+
+    """ # Ler grelha da figura 1a:
     board = Board.parse_instance()
     # Criar uma instância de Slytherlink:
     problem = Slitherlink(board)
@@ -354,6 +452,16 @@ if __name__ == "__main__":
     # Verificar se foi atingida a solução
     #print(s2.board.print_instance())
     #print("\n")
-    #print(s3.board.print_instance())
+    #print(s3.board.print_instance())"""
+   
+   # Ler grelha da figura 1a:
+    board = Board.parse_instance()
+    # Criar uma instância de Slytherlink:
+    problem = Slitherlink(board)
+    # Obter o nó solução usando a procura em profundidade:
+    goal_node = depth_first_tree_search(problem)
+    # Verificar se foi atingida a solução
+    print("Is goal?", problem.goal_test(goal_node.state))
+    print("Solution:\n", goal_node.state.board.print_instance(), sep="")
 
 
