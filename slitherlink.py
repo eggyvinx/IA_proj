@@ -148,42 +148,111 @@ class Slitherlink(Problem):
         return False
 
     def actions(self, state: SlitherlinkState):
-        """Retorna uma lista de arestas ativáveis seguindo a estratégia informada."""
+        """Retorna uma lista de arestas ativáveis seguindo estratégias avançadas do Slitherlink."""
         valid_actions = []
         board = state.board
         
-        # 1. Marcar células com 0 como proibidas (-1) permanentemente neste estado
+        # 1. Marcar células com 0 como proibidas (-1)
         self._mark_zeros_forbidden(state)
         
-        # 2. Procurar vértices de grau 1 e verificar se já há arestas ativadas no tabuleiro
+        # 2. ESTRATÉGIA C: Verificar '3's nos cantos do tabuleiro
+        corners = [
+            (1, 1, [('h', 1, 1), ('v', 1, 1)]), 
+            (1, board.cols, [('h', 1, board.cols), ('v', 1, board.cols + 1)]), 
+            (board.rows, 1, [('h', board.rows + 1, 1), ('v', board.rows, 1)]), 
+            (board.rows, board.cols, [('h', board.rows + 1, board.cols), ('v', board.rows, board.cols + 1)]) 
+        ]
+        for r, c, mandatory_edges in corners:
+            if (r, c) in board.board and board.board[(r, c)][0] == '3':
+                corner_actions = []
+                for orient, er, ec in mandatory_edges:
+                    if not self._is_edge_active(board, orient, er, ec) and not self._is_edge_forbidden(board.board, orient, er, ec):
+                        if self._is_action_legal(state, orient, er, ec):
+                            corner_actions.append((orient, er, ec))
+                if corner_actions:
+                    return corner_actions
+
+        # 3. ESTRATÉGIA D: Células Forçadas (Resolve "3 next to a 0" e "3s with an X")
+        # Se as linhas ativas somadas com as livres vazias for igual ao exigido, as livres são forçadas.
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 1):
+                val = board.board[(r, c)][0]
+                if val in '123':
+                    req = int(val)
+                    edges = [('h', r, c), ('h', r + 1, c), ('v', r, c), ('v', r, c + 1)]
+                    active_count = 0
+                    available_edges = []
+                    
+                    for orient, er, ec in edges:
+                        if self._is_edge_active(board, orient, er, ec):
+                            active_count += 1
+                        elif not self._is_edge_forbidden(board.board, orient, er, ec):
+                            available_edges.append((orient, er, ec))
+                    
+                    # Se as arestas em falta são exatamente as que estão disponíveis, ativamos todas!
+                    if req - active_count == len(available_edges) and len(available_edges) > 0:
+                        forced_actions = []
+                        for orient, er, ec in available_edges:
+                            if self._is_action_legal(state, orient, er, ec):
+                                forced_actions.append((orient, er, ec))
+                        if forced_actions:
+                            return forced_actions
+
+        # 4. ESTRATÉGIA E: Diagonal 2s (Transferring properties / Dedutibilidade Paralela)
+        # Se uma aresta exterior de um 2 diagonal estiver ativada, a correspondente no outro 2 tem de refletir a continuidade.
+        for r in range(1, board.rows):
+            for c in range(1, board.cols):
+                # Diagonal Top-Left para Bottom-Right
+                if board.board[(r, c)][0] == '2' and board.board[(r + 1, c + 1)][0] == '2':
+                    if self._is_edge_active(board, 'h', r, c) and not self._is_edge_active(board, 'h', r + 2, c + 1):
+                        if self._is_action_legal(state, 'h', r + 2, c + 1): return [('h', r + 2, c + 1)]
+                    if self._is_edge_active(board, 'v', r, c) and not self._is_edge_active(board, 'v', r + 1, c + 2):
+                        if self._is_action_legal(state, 'v', r + 1, c + 2): return [('v', r + 1, c + 2)]
+                
+                # Diagonal Top-Right para Bottom-Left
+                if board.board[(r, c + 1)][0] == '2' and board.board[(r + 1, c)][0] == '2':
+                    if self._is_edge_active(board, 'h', r, c + 1) and not self._is_edge_active(board, 'h', r + 2, c):
+                        if self._is_action_legal(state, 'h', r + 2, c): return [('h', r + 2, c)]
+                    if self._is_edge_active(board, 'v', r, c + 2) and not self._is_edge_active(board, 'v', r + 1, c):
+                        if self._is_action_legal(state, 'v', r + 1, c): return [('v', r + 1, c)]
+
+        # 5. ESTRATÉGIA F: Padrões de 3s Adjacentes (Bónus muito forte no Slitherlink)
+        # Dois '3' lado a lado forçam a aresta comum entre eles e as arestas exteriores paralelas.
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 1):
+                if board.board[(r, c)][0] == '3':
+                    # 3s Adjacentes Horizontalmente
+                    if (r, c + 1) in board.board and board.board[(r, c + 1)][0] == '3':
+                        adj_3_actions = []
+                        for orient, er, ec in [('v', r, c), ('v', r, c + 1), ('v', r, c + 2)]:
+                            if not self._is_edge_active(board, orient, er, ec) and not self._is_edge_forbidden(board.board, orient, er, ec) and self._is_action_legal(state, orient, er, ec):
+                                adj_3_actions.append((orient, er, ec))
+                        if adj_3_actions: return adj_3_actions
+                        
+                    # 3s Adjacentes Verticalmente
+                    if (r + 1, c) in board.board and board.board[(r + 1, c)][0] == '3':
+                        adj_3_actions = []
+                        for orient, er, ec in [('h', r, c), ('h', r + 1, c), ('h', r + 2, c)]:
+                            if not self._is_edge_active(board, orient, er, ec) and not self._is_edge_forbidden(board.board, orient, er, ec) and self._is_action_legal(state, orient, er, ec):
+                                adj_3_actions.append((orient, er, ec))
+                        if adj_3_actions: return adj_3_actions
+
+        # 6. ESTRATÉGIA B: Extensão de Caminhos (Grau 1)
         degree_1_vertices = []
         any_edge_active = False
         
-        # Iterar sobre todos os vértices possíveis
         for r in range(1, board.rows + 2):
             for c in range(1, board.cols + 2):
                 deg = self._get_vertex_degree(board, r, c)
-                if deg > 0:
-                    any_edge_active = True
-                if deg == 1:
-                    degree_1_vertices.append((r, c))
+                if deg > 0: any_edge_active = True
+                if deg == 1: degree_1_vertices.append((r, c))
                     
-        # --- ESTRATÉGIA B: Se já existem arestas ativas, continuar a partir de um vértice de grau 1 ---
         if any_edge_active:
             if degree_1_vertices:
-                # Escolher o primeiro vértice aberto (grau 1) para explorar e expandir esse caminho
                 vr, vc = degree_1_vertices[0]
-                
-                # Potenciais arestas ligadas a este vértice específico
-                potential_edges = [
-                    ('h', vr, vc),       # Direita
-                    ('h', vr, vc - 1),   # Esquerda
-                    ('v', vr, vc),       # Baixo
-                    ('v', vr - 1, vc)    # Cima
-                ]
+                potential_edges = [('h', vr, vc), ('h', vr, vc - 1), ('v', vr, vc), ('v', vr - 1, vc)]
                 
                 for orient, er, ec in potential_edges:
-                    # Garantir que a aresta gerada está dentro dos limites do tabuleiro
                     if orient == 'h' and (er < 1 or er > board.rows + 1 or ec < 1 or ec > board.cols): continue
                     if orient == 'v' and (er < 1 or er > board.rows or ec < 1 or ec > board.cols + 1): continue
                     
@@ -193,42 +262,29 @@ class Slitherlink(Problem):
                 
                 return valid_actions
             else:
-                # O circuito deve estar fechado se existem arestas mas nenhum vértice de grau 1
                 return []
                 
-        # --- ESTRATÉGIA A: Nenhuma aresta ativada. Procurar células com '3' ---
-        else:
-            for r in range(1, board.rows + 1):
-                for c in range(1, board.cols + 1):
-                    if board.board[(r, c)][0] == '3':
-                        # Se encontrou um 3, sugerir as suas 4 arestas (Top, Bottom, Left, Right)
-                        potential_edges = [
-                            ('h', r, c),       # Top
-                            ('h', r + 1, c),   # Bottom
-                            ('v', r, c),       # Left
-                            ('v', r, c + 1)    # Right
-                        ]
-                        
-                        for orient, er, ec in potential_edges:
-                            if not self._is_edge_forbidden(board.board, orient, er, ec):
-                                if self._is_action_legal(state, orient, er, ec):
-                                    valid_actions.append((orient, er, ec))
-                        
-                        # Retornar imediatamente para garantir que focamos na primeira célula '3' que encontrarmos
-                        if valid_actions:
-                            return valid_actions
+        # 7. ESTRATÉGIA A: Fallbacks / Início de Jogo 
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 1):
+                if board.board[(r, c)][0] == '3':
+                    potential_edges = [('h', r, c), ('h', r + 1, c), ('v', r, c), ('v', r, c + 1)]
+                    for orient, er, ec in potential_edges:
+                        if not self._is_edge_forbidden(board.board, orient, er, ec):
+                            if self._is_action_legal(state, orient, er, ec):
+                                valid_actions.append((orient, er, ec))
+                    if valid_actions: return valid_actions
                             
-            # Fallback seguro: caso não exista nenhuma célula com '3' no tabuleiro inteiro, usar expansão linear
-            for r in range(1, board.rows + 2):
-                for c in range(1, board.cols + 1):
-                    if not self._is_edge_forbidden(board.board, 'h', r, c) and self._is_action_legal(state, 'h', r, c):
-                        valid_actions.append(('h', r, c))
-            for r in range(1, board.rows + 1):
-                for c in range(1, board.cols + 2):
-                    if not self._is_edge_forbidden(board.board, 'v', r, c) and self._is_action_legal(state, 'v', r, c):
-                        valid_actions.append(('v', r, c))
-                        
-            return valid_actions
+        for r in range(1, board.rows + 2):
+            for c in range(1, board.cols + 1):
+                if not self._is_edge_forbidden(board.board, 'h', r, c) and self._is_action_legal(state, 'h', r, c):
+                    valid_actions.append(('h', r, c))
+        for r in range(1, board.rows + 1):
+            for c in range(1, board.cols + 2):
+                if not self._is_edge_forbidden(board.board, 'v', r, c) and self._is_action_legal(state, 'v', r, c):
+                    valid_actions.append(('v', r, c))
+                    
+        return valid_actions
 
     def _get_vertex_degree(self, board, vr, vc):
         """
@@ -454,6 +510,7 @@ if __name__ == "__main__":
     #print("\n")
     #print(s3.board.print_instance())"""
    
+   ##comentatio a toa
    # Ler grelha da figura 1a:
     board = Board.parse_instance()
     # Criar uma instância de Slytherlink:
@@ -462,6 +519,6 @@ if __name__ == "__main__":
     goal_node = depth_first_tree_search(problem)
     # Verificar se foi atingida a solução
     print("Is goal?", problem.goal_test(goal_node.state))
-    print("Solution:\n", goal_node.state.board.print_instance(), sep="")
+    print("Solution:\n", goal_node.state.board.print(), sep="")
 
 
